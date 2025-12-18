@@ -1,0 +1,134 @@
+/* PowerMon Dashboard Custom Styles */
+
+:root {
+    --powermon-primary: #0d6efd;
+    --powermon-success: #198754;
+    --powermon-danger: #dc3545;
+    --powermon-warning: #ffc107;
+}
+
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+/* Status Cards */
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.card.border-success {
+    border-width: 3px !important;
+}
+
+.card.border-danger {
+    border-width: 3px !important;
+}
+
+/* Chart containers */
+.card img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Badges */
+.badge {
+    font-size: 0.85rem;
+    padding: 0.35em 0.65em;
+}
+
+/* Tables */
+.table {
+    margin-bottom: 0;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,0.035);
+}
+
+/* Buttons */
+.btn {
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Alerts */
+.alert {
+    border-left: 4px solid;
+}
+
+.alert-danger {
+    border-left-color: var(--powermon-danger);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.85;
+    }
+}
+
+/* Footer */
+footer {
+    border-top: 1px solid #dee2e6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    .display-4 {
+        font-size: 2rem;
+    }
+}
+
+/* Loading state */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Status indicators */
+.status-online {
+    color: var(--powermon-success);
+}
+
+.status-offline {
+    color: var(--powermon-danger);
+}
+
+/* Card headers */
+.card-header {
+    background-color: #fff;
+    border-bottom: 2px solid #e9ecef;
+    font-weight: 600;
+}
+
+.card-header h5 {
+    margin: 0;
+}
+
+/* Time range selector */
+.form-select:focus {
+    border-color: var(--powermon-primary);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}

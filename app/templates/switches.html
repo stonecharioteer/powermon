@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Switches - PowerMon{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-4">
+            <i class="bi bi-toggles"></i> Smart Switches
+        </h1>
+        <p class="lead">Manage your power monitoring devices</p>
+    </div>
+    <div class="col-auto">
+        <a href="{{ url_for('main.add_switch') }}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle"></i> Add Switch
+        </a>
+    </div>
+</div>
+
+{% if switches %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Status</th>
+                                <th>Name</th>
+                                <th>IP Address</th>
+                                <th>Last Check</th>
+                                <th>State</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for switch in switches %}
+                            <tr>
+                                <td>
+                                    {% set latest_check = switch.power_checks.order_by(switch.power_checks.class_.checked_at.desc()).first() %}
+                                    {% if latest_check %}
+                                        {% if latest_check.is_online %}
+                                            <i class="bi bi-check-circle-fill text-success fs-4" title="Online"></i>
+                                        {% else %}
+                                            <i class="bi bi-x-circle-fill text-danger fs-4" title="Offline"></i>
+                                        {% endif %}
+                                    {% else %}
+                                        <i class="bi bi-question-circle text-muted fs-4" title="No checks yet"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ switch.name }}</strong>
+                                </td>
+                                <td>
+                                    <code>{{ switch.ip_address }}</code>
+                                </td>
+                                <td>
+                                    {% if latest_check %}
+                                        <span class="local-time" data-utc="{{ latest_check.checked_at.isoformat() }}">
+                                            {{ latest_check.checked_at.strftime('%H:%M:%S') }}
+                                        </span>
+                                        {% if latest_check.response_time %}
+                                            <br><small class="text-muted">{{ "%.3f"|format(latest_check.response_time) }}s</small>
+                                        {% endif %}
+                                        {% if latest_check.error_message %}
+                                            <br><small class="text-danger">{{ latest_check.error_message }}</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Never checked</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if switch.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ switch.created_at.strftime('%Y-%m-%d') }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button type="button"
+                                                class="btn btn-outline-primary test-switch-btn"
+                                                data-switch-id="{{ switch.id }}"
+                                                title="Test connectivity">
+                                            <i class="bi bi-lightning-charge"></i>
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-outline-secondary toggle-switch-btn"
+                                                data-switch-id="{{ switch.id }}"
+                                                data-active="{{ switch.is_active|lower }}"
+                                                title="{% if switch.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                            <i class="bi bi-{% if switch.is_active %}pause{% else %}play{% endif %}-circle"></i>
+                                        </button>
+                                        <form method="POST"
+                                              action="{{ url_for('main.delete_switch', switch_id=switch.id) }}"
+                                              style="display: inline;"
+                                              onsubmit="return confirm('Are you sure you want to delete {{ switch.name }}?');">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title">{{ switches|length }}</h3>
+                <p class="card-text text-muted">Total Switches</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title text-success">{{ switches|selectattr('is_active')|list|length }}</h3>
+                <p class="card-text text-muted">Active</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="card-title text-secondary">{{ switches|rejectattr('is_active')|list|length }}</h3>
+                <p class="card-text text-muted">Inactive</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                {% set online_count = namespace(value=0) %}
+                {% for switch in switches %}
+                    {% set latest_check = switch.power_checks.order_by(switch.power_checks.class_.checked_at.desc()).first() %}
+                    {% if latest_check and latest_check.is_online %}
+                        {% set online_count.value = online_count.value + 1 %}
+                    {% endif %}
+                {% endfor %}
+                <h3 class="card-title">{{ online_count.value }}</h3>
+                <p class="card-text text-muted">Online Now</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle fs-1"></i>
+            <h4 class="mt-3">No switches configured</h4>
+            <p>Add your first smart switch to start monitoring power status.</p>
+            <a href="{{ url_for('main.add_switch') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Switch
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Convert UTC timestamps to relative time
+function getRelativeTime(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSeconds < 60) {
+        return diffSeconds <= 1 ? 'just now' : `${diffSeconds} seconds ago`;
+    } else if (diffMinutes < 60) {
+        return diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
+    } else if (diffHours < 24) {
+        return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+    } else {
+        return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+    }
+}
+
+function convertTimesToLocal() {
+    const timeElements = document.querySelectorAll('.local-time');
+    timeElements.forEach(element => {
+        const utcTime = element.getAttribute('data-utc');
+        if (utcTime) {
+            const date = new Date(utcTime);
+            element.textContent = getRelativeTime(date);
+            element.setAttribute('title', date.toLocaleString());
+        }
+    });
+}
+
+// Test switch connectivity
+document.addEventListener('DOMContentLoaded', function() {
+    // Convert times on page load
+    convertTimesToLocal();
+
+    // Update times periodically
+    setInterval(convertTimesToLocal, 10000);
+
+    // Test switch buttons
+    document.querySelectorAll('.test-switch-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const switchId = this.getAttribute('data-switch-id');
+            const originalHtml = this.innerHTML;
+
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const response = await fetch(`/test-switch/${switchId}`);
+                const data = await response.json();
+
+                if (data.is_online) {
+                    this.innerHTML = '<i class="bi bi-check-circle"></i>';
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-success');
+                } else {
+                    this.innerHTML = '<i class="bi bi-x-circle"></i>';
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-danger');
+                }
+
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } catch (error) {
+                console.error('Error testing switch:', error);
+                this.innerHTML = originalHtml;
+                this.disabled = false;
+            }
+        });
+    });
+
+    // Toggle switch active status
+    document.querySelectorAll('.toggle-switch-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const switchId = this.getAttribute('data-switch-id');
+
+            try {
+                const response = await fetch(`/switches/${switchId}/toggle`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('Error toggling switch:', error);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

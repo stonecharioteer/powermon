@@ -20,25 +20,25 @@ def init_db():
 
 
 @click.command()
-@click.argument("name")
+@click.argument("label")
 @click.argument("ip_address")
 @with_appcontext
-def add_switch(name, ip_address):
+def add_switch(label, ip_address):
     """Add a new smart switch"""
     # Check if switch already exists
     existing = SmartSwitch.query.filter(
-        (SmartSwitch.name == name) | (SmartSwitch.ip_address == ip_address)
+        (SmartSwitch.name == label) | (SmartSwitch.ip_address == ip_address)
     ).first()
 
     if existing:
-        click.echo(f'Switch with name "{name}" or IP "{ip_address}" already exists!')
+        click.echo(f'Switch with name "{label}" or IP "{ip_address}" already exists!')
         return
 
-    switch = SmartSwitch(name=name, ip_address=ip_address)
+    switch = SmartSwitch(name=label, ip_address=ip_address)
     db.session.add(switch)
     db.session.commit()
 
-    click.echo(f"Added switch: {name} ({ip_address})")
+    click.echo(f"Added switch: {label} ({ip_address})")
 
 
 @click.command()
@@ -61,7 +61,7 @@ def list_switches():
 @click.argument("switch_id", type=int)
 @with_appcontext
 def remove_switch(switch_id):
-    """Remove a switch"""
+    """Remove a switch by ID"""
     switch = SmartSwitch.query.get(switch_id)
 
     if not switch:
@@ -72,6 +72,35 @@ def remove_switch(switch_id):
     db.session.commit()
 
     click.echo(f"Removed switch: {switch.name}")
+
+
+@click.command()
+@click.argument("switch_name")
+@with_appcontext
+def rm_switch(switch_name):
+    """Remove a switch by name"""
+    switch = SmartSwitch.query.filter_by(name=switch_name).first()
+
+    if not switch:
+        click.echo(f'Switch with name "{switch_name}" not found!')
+        # Show available switches
+        all_switches = SmartSwitch.query.all()
+        if all_switches:
+            click.echo("\nAvailable switches:")
+            for s in all_switches:
+                click.echo(f"  - {s.name} (ID: {s.id})")
+        return
+
+    # Ask for confirmation
+    click.confirm(
+        f'Remove switch "{switch.name}" ({switch.ip_address})?',
+        abort=True
+    )
+
+    db.session.delete(switch)
+    db.session.commit()
+
+    click.echo(f"✓ Removed switch: {switch.name}")
 
 
 @click.command()
@@ -155,6 +184,7 @@ app.cli.add_command(init_db)
 app.cli.add_command(add_switch)
 app.cli.add_command(list_switches)
 app.cli.add_command(remove_switch)
+app.cli.add_command(rm_switch)
 app.cli.add_command(test_switches)
 app.cli.add_command(cleanup_data)
 app.cli.add_command(show_stats)

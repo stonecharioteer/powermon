@@ -2,7 +2,8 @@ services:
   postgres:
     image: postgres:16
     container_name: powermon_postgres
-    network_mode: "host"
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: powermon
       POSTGRES_USER: powermon
@@ -14,11 +15,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   redis:
     image: redis:7-alpine
     container_name: powermon_redis
-    network_mode: "host"
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -26,16 +30,19 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   web:
     build: .
     container_name: powermon_web
-    network_mode: "host"
-    command: gunicorn -w 4 -b 0.0.0.0:56957 "app:create_app()"
+    ports:
+      - "8000:8000"
+    command: gunicorn -w 4 -b 0.0.0.0:8000 "app:create_app()"
     environment:
-      DATABASE_URL: postgresql+psycopg://powermon:powermon123@127.0.0.1:5432/powermon
-      REDIS_URL: redis://127.0.0.1:6379/0
-      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      DATABASE_URL: postgresql+psycopg://powermon:powermon123@postgres:5432/powermon
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
       FLASK_ENV: production
       SECRET_KEY: your-production-secret-key
       MONITOR_INTERVAL: 60
@@ -46,69 +53,61 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-
-  dash:
-    build: .
-    container_name: powermon_dash
-    command: python dashboard.py
-    network_mode: "host"
-    environment:
-      DATABASE_URL: postgresql+psycopg://powermon:powermon123@127.0.0.1:5432/powermon
-      REDIS_URL: redis://127.0.0.1:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   celery_worker:
     build: .
     container_name: powermon_celery_worker
-    network_mode: "host"
     command: celery -A celery_app worker --loglevel=info
     environment:
-      DATABASE_URL: postgresql+psycopg://powermon:powermon123@127.0.0.1:5432/powermon
-      REDIS_URL: redis://127.0.0.1:6379/0
-      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      DATABASE_URL: postgresql+psycopg://powermon:powermon123@postgres:5432/powermon
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   celery_beat:
     build: .
     container_name: powermon_celery_beat
-    network_mode: "host"
     command: celery -A celery_app beat --loglevel=info
     environment:
-      DATABASE_URL: postgresql+psycopg://powermon:powermon123@127.0.0.1:5432/powermon
-      REDIS_URL: redis://127.0.0.1:6379/0
-      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      DATABASE_URL: postgresql+psycopg://powermon:powermon123@postgres:5432/powermon
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   celery_flower:
     build: .
     container_name: powermon_celery_flower
-    network_mode: "host"
-    command: celery -A celery_app flower --loglevel=info
+    ports:
+      - "5555:5555"
+    command: celery -A celery_app flower --address=0.0.0.0 --port=5555
     environment:
-      DATABASE_URL: postgresql+psycopg://powermon:powermon123@127.0.0.1:5432/powermon
-      REDIS_URL: redis://127.0.0.1:6379/0
-      CELERY_BROKER_URL: redis://127.0.0.1:6379/0
+      DATABASE_URL: postgresql+psycopg://powermon:powermon123@postgres:5432/powermon
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:

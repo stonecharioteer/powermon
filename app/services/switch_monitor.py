@@ -1,4 +1,5 @@
-import requests
+import subprocess
+import platform
 import time
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
@@ -21,38 +22,61 @@ class SwitchMonitor:
         self, switch: SmartSwitch
     ) -> Tuple[bool, Optional[float], Optional[str]]:
         """
-        Check if a smart switch is online by making an HTTP request
+        Check if a smart switch is online using ICMP ping
 
         Returns:
             Tuple of (is_online, response_time, error_message)
         """
+        import subprocess
+        import platform
+
         try:
             start_time = time.time()
 
-            # Try HTTP request to the switch IP
-            # Most smart switches respond to basic HTTP requests
-            requests.get(
-                f"http://{switch.ip_address}",
-                timeout=self.timeout,
-                headers={"User-Agent": "PowerMon/1.0"},
+            # Determine ping command parameters based on OS
+            system = platform.system().lower()
+            
+            # Build ping command
+            if system == 'windows':
+                # Windows: ping -n 1 -w timeout_ms IP
+                command = [
+                    'ping',
+                    '-n', '1',  # Send 1 packet
+                    '-w', str(self.timeout * 1000),  # Timeout in milliseconds
+                    switch.ip_address
+                ]
+            else:
+                # Linux/Mac: ping -c 1 -W timeout_sec IP
+                command = [
+                    'ping',
+                    '-c', '1',  # Send 1 packet
+                    '-W', str(self.timeout),  # Timeout in seconds
+                    switch.ip_address
+                ]
+
+            # Execute ping command
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=self.timeout + 1
             )
 
             response_time = time.time() - start_time
 
-            # Consider switch online if we get any HTTP response (even 404)
-            # The key is that the device is reachable
-            is_online = True
-            return is_online, response_time, None
+            # Check if ping was successful (return code 0)
+            is_online = result.returncode == 0
 
-        except requests.exceptions.ConnectTimeout:
-            return False, None, "Connection timeout"
-        except requests.exceptions.ConnectionError:
-            return False, None, "Connection refused or unreachable"
-        except requests.exceptions.RequestException as e:
-            return False, None, f"Request failed: {str(e)}"
+            if is_online:
+                return True, response_time, None
+            else:
+                return False, None, "Ping failed - device unreachable"
+
+        except subprocess.TimeoutExpired:
+            return False, None, "Ping timeout"
         except Exception as e:
-            logger.error(f"Unexpected error checking switch {switch.name}: {e}")
-            return False, None, f"Unexpected error: {str(e)}"
+            logger.error(f"Unexpected error pinging switch {switch.name}: {e}")
+            return False, None, f"Ping error: {str(e)}"
 
     def record_power_check(
         self,

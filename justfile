@@ -71,9 +71,9 @@ clean:
 init-db:
     docker-compose exec web python manage.py init-db
 
-# Add a switch (usage: just add-switch MySwitch 192.168.1.100)
-add-switch name ip:
-    docker-compose exec web python manage.py add-switch {{name}} {{ip}}
+# Add a switch (usage: just add-switch MyLabel 192.168.1.100)
+add-switch label ip:
+    docker-compose exec web python manage.py add-switch {{label}} {{ip}}
 
 # List all switches
 list-switches:
@@ -92,15 +92,10 @@ flower:
     @echo "Opening Celery Flower at http://localhost:5555"
     @open http://localhost:5555 2>/dev/null || xdg-open http://localhost:5555 2>/dev/null || echo "Please open http://localhost:5555 in your browser"
 
-# Open Dash dashboard (http://localhost:8050)
-dashboard:
-    @echo "Opening PowerMon Dashboard at http://localhost:8050"
-    @open http://localhost:8050 2>/dev/null || xdg-open http://localhost:8050 2>/dev/null || echo "Please open http://localhost:8050 in your browser"
-
-# Open Flask web interface (http://localhost:56957)
+# Open Flask web interface and dashboard (http://localhost:8000)
 web:
-    @echo "Opening PowerMon Web Interface at http://localhost:56957"
-    @open http://localhost:56957 2>/dev/null || xdg-open http://localhost:56957 2>/dev/null || echo "Please open http://localhost:56957 in your browser"
+    @echo "Opening PowerMon Dashboard at http://localhost:8000"
+    @open http://localhost:8000 2>/dev/null || xdg-open http://localhost:8000 2>/dev/null || echo "Please open http://localhost:8000 in your browser"
 
 # Development shortcuts
 dev-install: install
@@ -108,10 +103,6 @@ dev-install: install
 # Run development server only
 dev-run:
     uv run python run.py
-
-# Run dashboard only
-dev-dashboard:
-    uv run python dashboard.py
 
 # Run celery worker only
 dev-worker:
@@ -140,9 +131,13 @@ check: lint format
 cleanup-data days="7":
     docker-compose exec web python manage.py cleanup-data --days {{days}}
 
-# Remove a switch (usage: just remove-switch 1)
+# Remove a switch by ID (usage: just remove-switch 1)
 remove-switch id:
     docker-compose exec web python manage.py remove-switch {{id}}
+
+# Remove a switch by name (usage: just rm-switch "MySwitch")
+rm-switch name:
+    docker-compose exec web python manage.py rm-switch {{name}}
 
 # Show container status
 status:

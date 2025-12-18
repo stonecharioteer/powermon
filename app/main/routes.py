@@ -9,6 +9,8 @@ from datetime import datetime
 @bp.route("/")
 def index():
     """Main dashboard page"""
+    from datetime import datetime as dt
+    
     switches = SmartSwitch.query.filter_by(is_active=True).all()
 
     # Get latest power check for each switch
@@ -34,7 +36,50 @@ def index():
         switch_status=switch_status,
         ongoing_outages=ongoing_outages,
         recent_outages=recent_outages,
+        now=dt.utcnow(),
     )
+
+
+@bp.route("/dashboard/charts/timeline")
+def chart_timeline():
+    """Generate timeline chart"""
+    from flask import send_file, request
+    from app.services.chart_generator import ChartGenerator
+    
+    hours = request.args.get('hours', 24, type=int)
+    
+    generator = ChartGenerator()
+    img_buffer = generator.generate_timeline_chart(hours=hours)
+    
+    return send_file(img_buffer, mimetype='image/png', as_attachment=False)
+
+
+@bp.route("/dashboard/charts/uptime")
+def chart_uptime():
+    """Generate uptime chart"""
+    from flask import send_file, request
+    from app.services.chart_generator import ChartGenerator
+    
+    hours = request.args.get('hours', 24, type=int)
+    
+    generator = ChartGenerator()
+    img_buffer = generator.generate_uptime_chart(hours=hours)
+    
+    return send_file(img_buffer, mimetype='image/png', as_attachment=False)
+
+
+@bp.route("/dashboard/charts/outages")
+def chart_outages():
+    """Generate outage duration chart"""
+    from flask import send_file, request
+    from app.services.chart_generator import ChartGenerator
+    
+    hours = request.args.get('hours', 168, type=int)
+    
+    generator = ChartGenerator()
+    img_buffer = generator.generate_outage_duration_chart(hours=hours)
+    
+    return send_file(img_buffer, mimetype='image/png', as_attachment=False)
 
 
 @bp.route("/switches")
@@ -123,11 +168,19 @@ def test_switch(switch_id):
 def outages():
     """Power outages history page"""
     page = request.args.get("page", 1, type=int)
-    outages = PowerOutage.query.order_by(PowerOutage.started_at.desc()).paginate(
+    outages_pagination = PowerOutage.query.order_by(PowerOutage.started_at.desc()).paginate(
         page=page, per_page=20, error_out=False
     )
 
-    return render_template("outages.html", outages=outages)
+    # Get all switches for displaying affected switches in modals
+    switches = SmartSwitch.query.all()
+
+    return render_template(
+        "outages.html",
+        outages=outages_pagination,
+        switches=switches,
+        now=datetime.utcnow()
+    )
 
 
 @bp.route("/api/status")

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Add Switch - PowerMon{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> Add New Switch
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('main.add_switch') }}" id="addSwitchForm">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">
+                            Switch Name <span class="text-danger">*</span>
+                        </label>
+                        <input type="text"
+                               class="form-control"
+                               id="name"
+                               name="name"
+                               placeholder="e.g., Living Room Light, Router, Fridge"
+                               required
+                               autofocus>
+                        <div class="form-text">
+                            A descriptive name to identify this switch
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="ip_address" class="form-label">
+                            IP Address <span class="text-danger">*</span>
+                        </label>
+                        <input type="text"
+                               class="form-control"
+                               id="ip_address"
+                               name="ip_address"
+                               placeholder="e.g., 192.168.1.100"
+                               pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+                               required>
+                        <div class="form-text">
+                            The IP address of the smart switch on your network
+                        </div>
+                        <div class="invalid-feedback">
+                            Please enter a valid IP address (e.g., 192.168.1.100)
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Tip:</strong> Make sure the device is connected to your network and you can ping it before adding.
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('main.switches') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-check-circle"></i> Add Switch
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-question-circle"></i> Need Help?
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>How to find your device's IP address:</h6>
+                <ul>
+                    <li><strong>Check your router:</strong> Log into your router's admin panel and look for connected devices</li>
+                    <li><strong>Use network scanner:</strong> Use tools like Fing (mobile app) or Advanced IP Scanner (desktop) to scan your network</li>
+                    <li><strong>Check device settings:</strong> Many smart devices show their IP address in the settings menu</li>
+                </ul>
+
+                <h6 class="mt-3">Testing connectivity:</h6>
+                <p>Before adding a switch, you can test if it's reachable by running:</p>
+                <pre class="bg-light p-2 rounded"><code>ping 192.168.1.100</code></pre>
+                <p class="text-muted small">Replace with your device's IP address</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('addSwitchForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const ipInput = document.getElementById('ip_address');
+
+    // IP address validation
+    ipInput.addEventListener('input', function() {
+        const ipPattern = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+        if (this.value && !ipPattern.test(this.value)) {
+            this.classList.add('is-invalid');
+            this.classList.remove('is-valid');
+        } else if (this.value) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+        } else {
+            this.classList.remove('is-invalid', 'is-valid');
+        }
+    });
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        // Disable submit button and show loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
+
+        // Get form data
+        const formData = new FormData(form);
+
+        // Submit via fetch
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok && response.redirected) {
+                // Redirect to switches page
+                window.location.href = response.url;
+            } else {
+                return response.json();
+            }
+        })
+        .then(data => {
+            if (data && data.error) {
+                // Show error message
+                alert('Error: ' + data.error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Add Switch';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while adding the switch. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Add Switch';
+        });
+    });
+});
+</script>
+{% endblock %}

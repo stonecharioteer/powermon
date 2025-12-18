@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - PowerMon{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-4">
+            <i class="bi bi-speedometer2"></i> Power Monitoring Dashboard
+        </h1>
+        <p class="lead">Real-time monitoring of smart switches and power outages</p>
+    </div>
+</div>
+
+<!-- Controls Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label for="timeRange" class="form-label">Time Range:</label>
+        <select class="form-select" id="timeRange" onchange="updateDashboard()">
+            <option value="1">Last Hour</option>
+            <option value="6">Last 6 Hours</option>
+            <option value="24" selected>Last 24 Hours</option>
+            <option value="168">Last 7 Days</option>
+            <option value="720">Last 30 Days</option>
+        </select>
+    </div>
+    <div class="col-md-6 d-flex align-items-end gap-2">
+        <button class="btn btn-primary" onclick="refreshDashboard()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+        <button class="btn btn-success" id="checkAllBtn" onclick="checkAllSwitches()">
+            <i class="bi bi-lightning-charge"></i> Check All Switches
+        </button>
+        <span class="ms-3 text-muted" id="lastUpdate"></span>
+    </div>
+</div>
+
+<!-- Ongoing Outages Alert -->
+{% if ongoing_outages %}
+<div class="alert alert-danger" role="alert">
+    <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill"></i> Power Outage in Progress!</h4>
+    <p>There {% if ongoing_outages|length == 1 %}is{% else %}are{% endif %} currently {{ ongoing_outages|length }}
+        ongoing outage(s).</p>
+    <hr>
+    {% for outage in ongoing_outages %}
+    <p class="mb-0">
+        <strong>Started:</strong>
+        <span class="local-time" data-utc="{{ outage.started_at.isoformat() }}">
+            {{ outage.started_at.strftime('%Y-%m-%d %H:%M:%S') }}
+        </span>
+    </p>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Switch Status Cards -->
+<div class="row mb-4" id="switchStatusCards">
+    {% for item in switch_status %}
+    <div class="col-md-4 col-lg-3 mb-3">
+        <div
+            class="card h-100 {% if item.latest_check and item.latest_check.is_online %}border-success{% else %}border-danger{% endif %}">
+            <div class="card-body">
+                <h5 class="card-title">
+                    {% if item.latest_check and item.latest_check.is_online %}
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    {% else %}
+                    <i class="bi bi-x-circle-fill text-danger"></i>
+                    {% endif %}
+                    {{ item.switch.name }}
+                </h5>
+                <p class="card-text">
+                    <small class="text-muted">IP: {{ item.switch.ip_address }}</small><br>
+                    {% if item.latest_check %}
+                    <strong>Status:</strong>
+                    <span class="badge {% if item.latest_check.is_online %}bg-success{% else %}bg-danger{% endif %}">
+                        {% if item.latest_check.is_online %}Online{% else %}Offline{% endif %}
+                    </span><br>
+                    <strong>Last Check:</strong>
+                    <span class="local-time" data-utc="{{ item.latest_check.checked_at.isoformat() }}">
+                        {{ item.latest_check.checked_at.strftime('%H:%M:%S') }}
+                    </span><br>
+                    {% if item.latest_check.response_time %}
+                    <strong>Response:</strong> {{ "%.3f"|format(item.latest_check.response_time) }}s
+                    {% endif %}
+                    {% if item.latest_check.error_message %}
+                    <br><small class="text-danger">{{ item.latest_check.error_message }}</small>
+                    {% endif %}
+                    {% else %}
+                    <span class="badge bg-secondary">No checks yet</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if not switch_status %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No switches configured.
+            <a href="{{ url_for('main.add_switch') }}" class="alert-link">Add your first switch</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Charts Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-graph-up"></i> Power Status Timeline</h5>
+            </div>
+            <div class="card-body text-center">
+                <img id="timelineChart" src="{{ url_for('main.chart_timeline', hours=24) }}" class="img-fluid"
+                    alt="Power Status Timeline">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5><i class="bi bi-bar-chart"></i> Switch Uptime</h5>
+            </div>
+            <div class="card-body text-center">
+                <img id="uptimeChart" src="{{ url_for('main.chart_uptime', hours=24) }}" class="img-fluid"
+                    alt="Switch Uptime">
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5><i class="bi bi-hourglass-split"></i> Outage Duration Distribution</h5>
+            </div>
+            <div class="card-body text-center">
+                <img id="outageChart" src="{{ url_for('main.chart_outages', hours=168) }}" class="img-fluid"
+                    alt="Outage Duration Distribution">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Outages Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-table"></i> Recent Power Outages</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_outages %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Started</th>
+                                <th>Ended</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Switches Affected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for outage in recent_outages[:10] %}
+                            <tr>
+                                <td>{{ outage.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>
+                                    {% if outage.ended_at %}
+                                    {{ outage.ended_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                    <span class="badge bg-danger">Ongoing</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if outage.duration_seconds %}
+                                    {{ (outage.duration_seconds / 60) | int }} minutes
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if outage.is_ongoing %}
+                                    <span class="badge bg-danger">Active</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Resolved</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if outage.switches_affected %}
+                                    {{ outage.switches_affected | length }}
+                                    {% else %}
+                                    0
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> No power outages recorded recently. System is stable!
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

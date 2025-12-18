@@ -197,3 +197,34 @@ def get_statistics():
             "timestamp": datetime.utcnow().isoformat(),
         }
     )
+
+
+@bp.route("/check-all-switches", methods=["POST"])
+def check_all_switches():
+    """Trigger manual check of all switches"""
+    from app.services.switch_monitor import SwitchMonitor
+    
+    try:
+        monitor = SwitchMonitor()
+        results = monitor.check_all_switches()
+        
+        # Count results
+        total = len(results)
+        online = sum(1 for r in results if r['is_online'])
+        offline = total - online
+        
+        return jsonify({
+            "success": True,
+            "message": f"Checked {total} switches",
+            "results": {
+                "total": total,
+                "online": online,
+                "offline": offline
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
