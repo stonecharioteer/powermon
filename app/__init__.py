@@ -18,7 +18,17 @@ def make_celery(app):
         backend=app.config["CELERY_RESULT_BACKEND"],
         broker=app.config["CELERY_BROKER_URL"],
     )
-    celery.conf.update(app.config)
+    
+    # Update with new-style configuration
+    celery.conf.update(
+        result_backend=app.config["CELERY_RESULT_BACKEND"],
+        broker_url=app.config["CELERY_BROKER_URL"],
+        task_serializer='json',
+        accept_content=['json'],
+        result_serializer='json',
+        timezone='UTC',
+        enable_utc=True,
+    )
 
     class ContextTask(celery.Task):
         def __call__(self, *args, **kwargs):
@@ -63,5 +73,4 @@ def create_app():
     return app
 
 
-# Create Celery instance
-celery = make_celery(create_app())
+# Celery instance is now created in celery_app.py to avoid circular imports

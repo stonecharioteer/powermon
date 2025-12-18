@@ -2,7 +2,6 @@ from flask import jsonify, request
 from app.api import bp
 from app.models import SmartSwitch, PowerCheck, PowerOutage
 from app.services.switch_monitor import SwitchMonitor
-from app.tasks import check_single_switch
 from datetime import datetime, timedelta
 from sqlalchemy import and_
 
@@ -40,12 +39,15 @@ def check_switch_now(switch_id):
     """Trigger immediate check of a switch"""
     switch = SmartSwitch.query.get_or_404(switch_id)
 
-    # Queue the task
-    task = check_single_switch.delay(switch_id)
+    # Check switch directly for testing (bypass Celery for now)
+    monitor = SwitchMonitor()
+    is_online, response_time, error_message = monitor.check_switch_status(switch)
+    power_check = monitor.record_power_check(switch, is_online, response_time, error_message)
 
-    return jsonify(
-        {"message": f"Check queued for switch {switch.name}", "task_id": task.id}
-    )
+    return jsonify({
+        "message": f"Switch {switch.name} checked",
+        "result": power_check.to_dict()
+    })
 
 
 @bp.route("/power-checks", methods=["GET"])

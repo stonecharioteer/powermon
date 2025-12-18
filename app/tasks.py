@@ -1,26 +1,16 @@
-from celery.schedules import crontab
-from app import celery, create_app
+from celery_app import celery
 from app.services.switch_monitor import SwitchMonitor
-import os
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Configure Celery beat schedule
-celery.conf.beat_schedule = {
-    "monitor-switches": {
-        "task": "app.tasks.monitor_all_switches",
-        "schedule": int(os.getenv("MONITOR_INTERVAL", 60)),  # Run every N seconds
-    },
-}
-celery.conf.timezone = "UTC"
 
-
-@celery.task(bind=True)
-def monitor_all_switches(self):
+@celery.task(bind=True, name='app.tasks.monitor_all_switches')
+def monitor_all_switches_task(self):
     """Celery task to monitor all smart switches"""
+    from app import create_app
+    
     app = create_app()
-
     with app.app_context():
         try:
             monitor = SwitchMonitor()
@@ -46,14 +36,15 @@ def monitor_all_switches(self):
 
         except Exception as exc:
             logger.error(f"Error in monitor_all_switches task: {exc}")
-            self.retry(exc=exc, countdown=60, max_retries=3)
+            raise exc
 
 
-@celery.task
-def check_single_switch(switch_id: int):
+@celery.task(name='app.tasks.check_single_switch')
+def check_single_switch_task(switch_id: int):
     """Celery task to check a single switch"""
+    from app import create_app
+    
     app = create_app()
-
     with app.app_context():
         from app.models import SmartSwitch
 
@@ -70,11 +61,12 @@ def check_single_switch(switch_id: int):
         return power_check.to_dict()
 
 
-@celery.task
-def cleanup_old_power_checks():
+@celery.task(name='app.tasks.cleanup_old_power_checks')
+def cleanup_old_power_checks_task():
     """Clean up power check records older than 30 days"""
+    from app import create_app
+    
     app = create_app()
-
     with app.app_context():
         from datetime import datetime, timedelta
         from app.models import PowerCheck
@@ -93,8 +85,4 @@ def cleanup_old_power_checks():
         return {"deleted_records": deleted_count}
 
 
-# Add cleanup task to beat schedule
-celery.conf.beat_schedule["cleanup-old-records"] = {
-    "task": "app.tasks.cleanup_old_power_checks",
-    "schedule": crontab(hour=2, minute=0),  # Run daily at 2 AM
-}
+# Tasks are auto-discovered and configured in celery_app.py
